@@ -1,9 +1,20 @@
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var tfsOptions = builder.Configuration.GetOption<tfsOptions>("TfsOption");
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services
+    .AddSingleton(tfsOptions)
+    .AddScoped<IWorkItemService, WorkItemService>()
+    .AddMediatR(Assembly.GetExecutingAssembly())
+    .AddControllers();
+
+builder.Services.AddDbContext<ApplicationDbContext>(tfsOptions =>
+    tfsOptions.UseSqlServer(connectionString,
+    b => b.MigrationAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+
+builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
