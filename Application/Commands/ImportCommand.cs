@@ -1,77 +1,79 @@
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using TFSImportAndExport.Application.Interfaces;
+using TFSImportAndExport.Entities;
+using TFSImportAndExport.Services;
+
 namespace TFSImportAndExport.Application.Commands;
 
-public class ImportCommand : IRequest<Unit>
+public class ImportCommand : IRequest
 {
     public string? Tags { get; set; } = string.Empty;
 }
 
-public class ImportCommandHandler : IRequestHanderl<ImportCommand, Unit>
+public class ImportCommandHandler : IRequestHandler<ImportCommand>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly IWorkItemService _workItemService;
-    private readonly ILogger<ImportCommandHandler> _logger;
 
-    public ImportCommandHandler(IApplicationDbContext dbContext, IWorkItemService workItemService,
-        ILogger<ImportCommandHandler> logger)
+
+    public ImportCommandHandler(IApplicationDbContext dbContext, IWorkItemService workItemService)
     {
         _dbContext = dbContext;
         _workItemService = workItemService;
-        _logger = logger;
     }
 
-    public async Task<Unit> Handle(ImportCommand request, CancelationToken cancelationToken)
+    public async Task<Unit> Handle(ImportCommand request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Import job started ..........");
+        var epicWorkItem = await _dbContext.WorkItems
+            .Where(x => x.Updated == 0 &&
+                   x.Type.ToLower() == "epic" && 
+                  (request.Tags == null || x.Tags.Contains(request.Tags)))
+            .OrderBy(x => x.WorkItemNo)
+            .ToListAsync();
 
-        var epicWorkItem = await _dbContext.WorkItems.
-                                        .Where(x => x.Updated == 0 &&
-                                                x.Type.ToLower() == "epic" && 
-                                                (request.Tags == null || x.Tags.Contains(request.Tags)))
-                                        .OrderBy(x => x.WorkItemNo)
-                                        .ToListAsync();
+        await BatchImport(epicWorkItem, cancellationToken);
 
-        await BatchImport(epicWorkItem);
+        //var featureWorkItem = await _dbContext.WorkItems
+        //    .Where(x => x.Updated == 0 &&
+        //            x.Type.ToLower() == "feature" && 
+        //            (request.Tags == null || x.Tags.Contains(request.Tags)))
+        //    .OrderBy(x => x.WorkItemNo)
+        //    .ToListAsync();
 
-        var featureWorkItem = await _dbContext.WorkItems.
-                                        .Where(x => x.Updated == 0 &&
-                                                x.Type.ToLower() == "feature" && 
-                                                (request.Tags == null || x.Tags.Contains(request.Tags)))
-                                        .OrderBy(x => x.WorkItemNo)
-                                        .ToListAsync();
+        //await BatchImport(featureWorkItem, cancellationToken);
 
-        await BatchImport(featureWorkItem);
+        //var backLogWorkItem = await _dbContext.WorkItems
+        //    .Where(x => x.Updated == 0 &&
+        //            x.Type.ToLower() == "product backlog item" && 
+        //            (request.Tags == null || x.Tags.Contains(request.Tags)))
+        //    .OrderBy(x => x.WorkItemNo)
+        //    .ToListAsync();
 
-        var backLogWorkItem = await _dbContext.WorkItems.
-                                        .Where(x => x.Updated == 0 &&
-                                                x.Type.ToLower() == "product backlog item" && 
-                                                (request.Tags == null || x.Tags.Contains(request.Tags)))
-                                        .OrderBy(x => x.WorkItemNo)
-                                        .ToListAsync();
+        //await BatchImport(backLogWorkItem, cancellationToken);
 
-        await BatchImport(backLogWorkItem);
+        //var acWorkItem = await _dbContext.WorkItems
+        //    .Where(x => x.Updated == 0 &&
+        //            x.Type.ToLower() == "Acceptance Criteria" && 
+        //            (request.Tags == null || x.Tags.Contains(request.Tags)))
+        //    .OrderBy(x => x.WorkItemNo)
+        //    .ToListAsync();
 
-        var acWorkItem = await _dbContext.WorkItems.
-                                        .Where(x => x.Updated == 0 &&
-                                                x.Type.ToLower() == "Acceptance Criteria" && 
-                                                (request.Tags == null || x.Tags.Contains(request.Tags)))
-                                        .OrderBy(x => x.WorkItemNo)
-                                        .ToListAsync();
+        //await BatchImport(acWorkItem, cancellationToken);
 
-        await BatchImport(acWorkItem);
+        // var uiACWorkItem = await _dbContext.WorkItems
+        //    .Where(x => x.Updated == 0 &&
+        //            x.Type.ToLower() == "UI Acceptance Criteria" && 
+        //            (request.Tags == null || x.Tags.Contains(request.Tags)))
+        //    .OrderBy(x => x.WorkItemNo)
+        //    .ToListAsync();
 
-         var uiACWorkItem = await _dbContext.WorkItems.
-                                        .Where(x => x.Updated == 0 &&
-                                                x.Type.ToLower() == "UI Acceptance Criteria" && 
-                                                (request.Tags == null || x.Tags.Contains(request.Tags)))
-                                        .OrderBy(x => x.WorkItemNo)
-                                        .ToListAsync();
-
-        await BatchImport(uiACWorkItem);
+        //await BatchImport(uiACWorkItem, cancellationToken);
        
-        _logger.LogInformation("Import job completed ..........");
+        return Unit.Value;
     }
 
-    private async Task BatchImport(List<workItems> workItems)
+    private async Task BatchImport(List<WorkItem> workItems, CancellationToken cancellationToken)
     {
         foreach(var workItem in workItems)
         {
@@ -79,6 +81,9 @@ public class ImportCommandHandler : IRequestHanderl<ImportCommand, Unit>
             var clientId = await _workItemService.CreateWit(workItem, withParent);
 
             workItem.ClientId = clientId;
+            workItem.Updated = 1;
+
+            _dbContext.WorkItems.Update(workItem);
 
             var childWorkItems = await _dbContext.WorkItems.Where(x => x.ParentId == workItem.WorkItemNo).ToListAsync();
 
@@ -88,7 +93,7 @@ public class ImportCommandHandler : IRequestHanderl<ImportCommand, Unit>
             }
         }
 
-        await _dbContext.SaveChangesAsync(cancelationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
     }
 }

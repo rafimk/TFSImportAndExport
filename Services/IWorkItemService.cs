@@ -1,3 +1,6 @@
+using TFSImportAndExport.Contracts;
+using TFSImportAndExport.Entities;
+
 namespace TFSImportAndExport.Services;
 
 public interface IWorkItemService

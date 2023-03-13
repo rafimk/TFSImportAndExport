@@ -1,3 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using TFSImportAndExport.Entities;
+
 namespace TFSImportAndExport.Persistence.Configurations;
 
 public class WorkItemConfigurations : IEntityTypeConfiguration<WorkItem>

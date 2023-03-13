@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace TFSImportAndExport.Utilities;
 
 public static class Extensions
@@ -13,7 +15,7 @@ public static class Extensions
 
         foreach (var maskString in maskList)
         {
-            if (rv.Contains(maskString))
+            if (rv.Contains(maskString.Key))
             {
                 rv = rv.Replace(maskString.Key, maskString.Value);
             }

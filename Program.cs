@@ -1,7 +1,25 @@
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Reflection;
+using TFSImportAndExport;
+using TFSImportAndExport.Application.Interfaces;
+using TFSImportAndExport.Options;
+using TFSImportAndExport.Persistence;
+using TFSImportAndExport.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-var tfsOptions = builder.Configuration.GetOption<tfsOptions>("TfsOption");
+var tfsOptions = builder.Configuration.GetOptions<TfsOptions>("TfsOptions");
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+               options.UseSqlServer(connectionString,
+                   builder => builder.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+
+
+
+builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
 builder.Services
     .AddSingleton(tfsOptions)
@@ -9,11 +27,7 @@ builder.Services
     .AddMediatR(Assembly.GetExecutingAssembly())
     .AddControllers();
 
-builder.Services.AddDbContext<ApplicationDbContext>(tfsOptions =>
-    tfsOptions.UseSqlServer(connectionString,
-    b => b.MigrationAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
-builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

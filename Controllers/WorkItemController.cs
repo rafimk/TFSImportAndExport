@@ -1,4 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using TFSImportAndExport.Application.Commands;
+using TFSImportAndExport.Contracts;
+using TFSImportAndExport.Services;
+using TFSImportAndExport.Utilities;
 
 namespace TFSImportAndExport.Controllers;
 
@@ -32,7 +36,7 @@ public class WorkItemController : ApiControllerBase
     [HttpPost("Test")]
     public ActionResult<string> Test(string words)
     {
-        var masked = workd.Mask();
+        var masked = words.Mask();
 
         return Ok(masked);
     }
@@ -48,7 +52,7 @@ public class WorkItemController : ApiControllerBase
     [HttpPost("Import")]
     public async Task<ActionResult> Post(ImportCommand command)
     {
-        var result = await Medator.Send(command);
+        var result = await Mediator.Send(command);
 
         return NoContent();
     }

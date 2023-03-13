@@ -1,8 +1,11 @@
+using Microsoft.EntityFrameworkCore;
+using TFSImportAndExport.Entities;
+
 namespace TFSImportAndExport.Application.Interfaces;
 
 public interface IApplicationDbContext
 {
-    public DbSet<WorkItem> WorkItems { get; set; }
+    DbSet<WorkItem> WorkItems { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     

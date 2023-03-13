@@ -1,30 +1,30 @@
+using MediatR;
+using TFSImportAndExport.Application.Interfaces;
+using TFSImportAndExport.Services;
+using TFSImportAndExport.Entities;
+using Microsoft.EntityFrameworkCore;
+
 namespace TFSImportAndExport.Application.Commands;
 
-public class ExportCommand : IRequest<Unit>
+public class ExportCommand : IRequest
 {
     public Int32 ParentWorkItemNo { get; set; }
 }
 
-public class ExportCommandHandeler : IRequestHandler<ExportCommand, Uinit>
+public class ExportCommandHandeler : IRequestHandler<ExportCommand>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly IWorkItemService _workItemService;
-    private ILogger<ExportCommandHandeler> _logger;
 
-    public ExportCommandHandeler(IApplicationDbContext dbContext, IWorkItemService workItemService,
-        Logger<ExportCommandHandeler> logger)
+    public ExportCommandHandeler(IApplicationDbContext dbContext, IWorkItemService workItemService)
     {
         _dbContext = dbContext;
         _workItemService = workItemService;
-        _logger = logger;
     }
 
-    public async Task<Unit> Handle(ExportCommand request, CancelationToken cancelationToken)
+    public async Task<Unit> Handle(ExportCommand request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Export job started .......");
         var workItems = await _workItemService.GetWorkItemsWithAllChild(request.ParentWorkItemNo.ToString());
-        _logger.LogInformation($"Retreived : {workItems.Count}");
-
 
         foreach (var workItem in workItems)
         {
@@ -36,44 +36,43 @@ public class ExportCommandHandeler : IRequestHandler<ExportCommand, Uinit>
 
             if (existingWorkItem is null)
             {
-                var workItemToAdd = new workItem
+                var workItemToAdd = new WorkItem
                 {
                     WorkItemNo = workItem.WorkItemId,
-                    Type = workItem.Type,
+                    Type = workItem.WorkItemType,
                     Title = workItem.Title,
-                    Desciption = workItemInfo != null workItemInfo.Desciption : string.Empty,
-                    AssingTo = workItem.State,
+                    Description = workItemInfo != null ? workItemInfo.Description : string.Empty,
+                    State = workItem.State,
                     Tags = workItemInfo != null ? workItemInfo.Tags : string.Empty,
                     IterationPath = workItemInfo != null ? workItemInfo.IterationPath : string.Empty,
-                    ParentId = parentLink != null parentLink.TargetWorkItemId : null,
+                    ParentId = parentLink != null ? parentLink.TargetWorkItemId : null,
                     ClientId = null,
                     ClientParentId = null,
                     Updated = 0
                 };
 
-                await _dbContext.WorkItem.AddSync(workItemToAdd);
+                await _dbContext.WorkItems.AddAsync(workItemToAdd);
             }
             else
             {
-                existingWorkItem.Type = workItem.Type,
-                existingWorkItem.Title = workItem.Title,
-                existingWorkItem.Desciption = workItemInfo != null workItemInfo.Desciption : string.Empty,
-                existingWorkItem.AssingTo = workItem.State,
-                existingWorkItem.Tags = workItemInfo != null ? workItemInfo.Tags : string.Empty,
-                existingWorkItem.IterationPath = workItemInfo != null ? workItemInfo.IterationPath : string.Empty,
-                existingWorkItem.ParentId = parentLink != null parentLink.TargetWorkItemId : null,
-                existingWorkItem.ClientId = null,
-                existingWorkItem.ClientParentId = null,
-                existingWorkItem.Updated = 0
+                existingWorkItem.Type = workItem.WorkItemType;
+                existingWorkItem.Title = workItem.Title;
+                existingWorkItem.Description = workItemInfo != null ? workItemInfo.Description : string.Empty;
+                existingWorkItem.State = workItem.State;
+                existingWorkItem.Tags = workItemInfo != null ? workItemInfo.Tags : string.Empty;
+                existingWorkItem.IterationPath = workItemInfo != null ? workItemInfo.IterationPath : string.Empty;
+                existingWorkItem.ParentId = parentLink != null ? parentLink.TargetWorkItemId : null;
+                existingWorkItem.ClientId = null;
+                existingWorkItem.ClientParentId = null;
+                existingWorkItem.Updated = 0;
 
                 _dbContext.WorkItems.Update(existingWorkItem);
             }
 
-            await _dbContext.SaveChangesAsync(cancelationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Export job completed ........");
-
-            return Unit.Value;
+            
         }
+        return Unit.Value;
     }
 }

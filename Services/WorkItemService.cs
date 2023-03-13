@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
-
+using TFSImportAndExport.Contracts;
+using TFSImportAndExport.Entities;
 
 namespace TFSImportAndExport.Services;
 
@@ -28,10 +29,10 @@ public class WorkItemService : IWorkItemService
                 client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic",
                     Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes(string.Format("{0}:{1}", "", _options.SourceToken))));
                 
-                using (HttpResponse httpResponse = client.GetAsync($"{url}{query}").Result)
+                using (HttpResponseMessage httpResponse = client.GetAsync($"{url}{query}").Result)
                 {
                     httpResponse.EnsureSuccessStatusCode();
-                    string body = await httpResponse.Content.ReadAsString();
+                    string body = await httpResponse.Content.ReadAsStringAsync();
 
                     using JsonDocument doc = JsonDocument.Parse(body);
                     JsonElement root = doc.RootElement;
@@ -73,17 +74,17 @@ public class WorkItemService : IWorkItemService
                     var assignToSection = fields.GetProperty("System.AssignedTo");
 
                     var id = json.RootElement.GetProperty("id").GetInt32();
-                    var description = json.RootElement.GetProperty("System.Description");
-                    var assignTo = json.RootElement.GetProperty("uniqueName");
-                    var state = json.RootElement.GetProperty("System.State");
-                    var tags = json.RootElement.GetProperty("System.Tags");
-                    var iterationPath = json.RootElement.GetProperty("System.IterationPath");
+                    var description = json.RootElement.GetProperty("System.Description").ToString();
+                    var assignTo = json.RootElement.GetProperty("uniqueName").ToString();
+                    var state = json.RootElement.GetProperty("System.State").ToString();
+                    var tags = json.RootElement.GetProperty("System.Tags").ToString();
+                    var iterationPath = json.RootElement.GetProperty("System.IterationPath").ToString();
 
                     return new WorkItemInfo
                     {
                         Id = id,
                         Description = description,
-                        AssingTo = assignTo,
+                        AssignTo = assignTo,
                         State = state,
                         IterationPath = iterationPath
                     };
@@ -97,7 +98,7 @@ public class WorkItemService : IWorkItemService
         }
     }
 
-    public Task<int> CreateWit(WorkItem workItem, bool withParent)
+    public async Task<int> CreateWit(WorkItem workItem, bool withParent)
     {
         HttpClient client = new HttpClient();
         
@@ -110,10 +111,10 @@ public class WorkItemService : IWorkItemService
         List<Object> data = new List<Object>()
         {
             new { op = "add", path = "/fields/System.WorkItemType", from = string.Empty, value = workItem.Type },
-            new { op = "add", path = "/fields/System.Title", from = string.Empty, value = workItem.Title },
+            new { op = "add", path = "/fields/System.Title", from = string.Empty, value = $"{workItem.WorkItemNo.ToString()} - {workItem.Title}" },
             new { op = "add", path = "/fields/System.Description", from = string.Empty, value = description },
             new { op = "add", path = "/fields/System.State", from = string.Empty, value = workItem.State },
-            new { op = "add", path = "/fields/System.Tags", from = string.Empty, value = $"{workItem.Tags};{workItem.WorItemNo.ToString()};{workItem.AssignTo}" },
+            new { op = "add", path = "/fields/System.Tags", from = string.Empty, value = $"{workItem.Tags};{workItem.AssignTo}" },
         };
 
         if (withParent)
@@ -133,14 +134,14 @@ public class WorkItemService : IWorkItemService
         }
 
         var jsonData = JsonSerializer.Serialize(data);
-        string url = String.Join("?", String.Join("/", _options.TargetBaseUrl, _options.TargetProjectName, "_apis/wit/workitems", $"{workItem.Type}"), _options.TargetApiVersion);
+        string url = String.Join("?", String.Join("/", _options.TargetBaseUrl, _options.TargetProjectName, "_apis/wit/workitems", $"${workItem.Type}"), _options.TargetApiVersion);
 
         HttpContent content = new StringContent(jsonData, Encoding.UTF8, "application/json-patch+json");
 
         var id = 0;
 
         var t = Task.Run(async delegate {
-            string result = await CreateWit(client, url, content);
+            string result = await CreateWIT(client, url, content);
 
             if (String.IsNullOrEmpty(result))
             {
